@@ -1,0 +1,7 @@
+{
+  "name": "EDUFLY",
+  "description": "An AI-powered intelligent study assistant helping students organize tasks, learn concepts via chat, and practice with AI-generated quizzes.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
