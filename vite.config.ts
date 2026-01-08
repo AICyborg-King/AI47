@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       // This enables process.env.API_KEY to work in client-side code
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      // We use || '' to ensure it's always a string, preventing "process is not defined" errors if the env var is missing
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
     build: {
       outDir: 'dist',

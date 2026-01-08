@@ -20,7 +20,7 @@ export function arrayBufferToBase64(buffer: ArrayBuffer) {
   return btoa(binary);
 }
 
-export function createPcmBlob(data: Float32Array): { data: string, mimeType: string } {
+export function createPcmBlob(data: Float32Array, sampleRate: number = 16000): { data: string, mimeType: string } {
   const l = data.length;
   const int16 = new Int16Array(l);
   for (let i = 0; i < l; i++) {
@@ -28,7 +28,7 @@ export function createPcmBlob(data: Float32Array): { data: string, mimeType: str
   }
   return {
     data: arrayBufferToBase64(int16.buffer),
-    mimeType: 'audio/pcm;rate=16000',
+    mimeType: `audio/pcm;rate=${sampleRate}`,
   };
 }
 

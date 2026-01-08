@@ -2,7 +2,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { QuizQuestion, Subject } from "../types";
 
 // Initialize the client and export it for use in components (e.g. Live API)
-export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Ensure we handle the case where API_KEY might be missing during dev/build to prevent crashes
+const apiKey = process.env.API_KEY || '';
+if (!apiKey) {
+  console.warn("API_KEY is missing. AI features will not work. Please set the API_KEY environment variable.");
+}
+
+export const ai = new GoogleGenAI({ apiKey });
 
 const CHAT_MODEL = 'gemini-3-flash-preview';
 const QUIZ_MODEL = 'gemini-3-flash-preview';
@@ -14,6 +20,7 @@ export const generateChatResponse = async (
   history: { role: string; text: string }[],
   message: string
 ) => {
+  if (!apiKey) throw new Error("API Key is missing. Please check your settings.");
   try {
     const chat = ai.chats.create({
       model: CHAT_MODEL,
@@ -43,6 +50,7 @@ export const generateChatResponse = async (
  * Generates a quiz based on a subject using JSON Schema.
  */
 export const generateQuiz = async (subject: Subject, difficulty: string = 'intermediate'): Promise<QuizQuestion[]> => {
+  if (!apiKey) throw new Error("API Key is missing");
   try {
     const prompt = `Generate a quiz for ${subject} at a ${difficulty} level. Create exactly 5 multiple choice questions.`;
     
@@ -71,8 +79,11 @@ export const generateQuiz = async (subject: Subject, difficulty: string = 'inter
       }
     });
 
-    const jsonText = response.text;
+    let jsonText = response.text;
     if (!jsonText) throw new Error("No data returned from AI");
+    
+    // Clean up markdown code blocks if present (Gemini sometimes adds them despite MIME type)
+    jsonText = jsonText.replace(/```json\n?|```/g, '').trim();
     
     return JSON.parse(jsonText) as QuizQuestion[];
 

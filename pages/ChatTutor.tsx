@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { generateChatResponse, ai } from '../services/geminiService';
-import { Send, Bot, User as UserIcon, Loader2, BookOpen, Mic, X, Sparkles, Volume2, Waves } from 'lucide-react';
+import { Send, Bot, User as UserIcon, Loader2, BookOpen, Mic, X, Sparkles, Volume2, Activity } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Subject, Note } from '../types';
 import { LiveServerMessage, Modality } from '@google/genai';
@@ -22,7 +22,7 @@ const ChatTutor: React.FC = () => {
   // Audio Refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const sessionRef = useRef<any>(null); // To store the active Live session
+  const sessionRef = useRef<Promise<any> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const nextStartTimeRef = useRef<number>(0);
@@ -168,10 +168,20 @@ const ChatTutor: React.FC = () => {
     try {
       // Setup Audio Output
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
       
       // Setup Audio Input
+      // We try to request 16000, but browser might ignore it. We must detect actual rate later.
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true 
+        } 
+      });
       streamRef.current = stream;
 
       const sessionPromise = ai.live.connect({
@@ -186,6 +196,9 @@ const ChatTutor: React.FC = () => {
             const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
             processorRef.current = scriptProcessor;
 
+            // Get actual sample rate from the context
+            const actualSampleRate = inputAudioContextRef.current.sampleRate;
+
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               
@@ -199,7 +212,7 @@ const ChatTutor: React.FC = () => {
               // High sensitivity for better visual feedback
               currentVolumeRef.current = Math.min(rms * 10, 1);
 
-              const pcmBlob = createPcmBlob(inputData);
+              const pcmBlob = createPcmBlob(inputData, actualSampleRate);
               sessionPromise.then((session) => {
                 session.sendRealtimeInput({ media: pcmBlob });
               });
@@ -282,6 +295,8 @@ const ChatTutor: React.FC = () => {
             console.error("Live API Error:", err);
             setVoiceStatus('error');
             setIsAiSpeaking(false);
+            // Optionally auto-close on error
+            stopVoiceSession();
           }
         },
         config: {
@@ -385,7 +400,7 @@ const ChatTutor: React.FC = () => {
                     {voiceStatus === 'connected' && (
                         isAiSpeaking ? (
                             <div className="flex items-center gap-2 text-white bg-indigo-500/80 px-5 py-2 rounded-full backdrop-blur-sm animate-pulse shadow-lg shadow-indigo-500/20">
-                                <Waves className="w-4 h-4" />
+                                <Activity className="w-4 h-4" />
                                 <span className="text-sm font-bold tracking-wide">EduFly is speaking</span>
                             </div>
                         ) : (
